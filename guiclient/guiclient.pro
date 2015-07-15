@@ -165,6 +165,7 @@ FORMS =   absoluteCalendarItem.ui               \
           configurePO.ui                        \
           configureSearchPath.ui                \
           configureSO.ui                        \
+          configureWF.ui							\
           configureWO.ui                        \
           confirmAchOK.ui                       \
           contact.ui                            \
@@ -401,6 +402,7 @@ FORMS =   absoluteCalendarItem.ui               \
           priceList.ui                          \
           pricingScheduleAssignment.ui          \
           pricingScheduleAssignments.ui         \
+          printApOpenItem.ui                    \
           printArOpenItem.ui                    \
           printCheck.ui                         \
           printChecks.ui                        \
@@ -633,6 +635,7 @@ FORMS =   absoluteCalendarItem.ui               \
           xdateinputdialog.ui                   \
           xsltMap.ui                            \
           zeroUncountedCountTagsByWarehouse.ui  \
+    printStatementsByCustomerGroup.ui
 
 HEADERS = ../common/format.h                    \
           SaveSizePositionEventFilter.h         \
@@ -718,6 +721,7 @@ HEADERS = ../common/format.h                    \
           configurePO.h                 \
           configureSearchPath.h         \
           configureSO.h                 \
+          configureWF.h					\
           configureWO.h                 \
           confirmAchOK.h                \
           contact.h                     \
@@ -989,6 +993,7 @@ HEADERS = ../common/format.h                    \
           priceList.h                   \
           pricingScheduleAssignment.h   \
           pricingScheduleAssignments.h  \
+          printApOpenItem.h             \
           printArOpenItem.h             \
           printCheck.h                  \
           printChecks.h                 \
@@ -1244,7 +1249,8 @@ HEADERS = ../common/format.h                    \
           xuiloader.h                   \
           xwidget.h                     \
           yourpayprocessor.h            \
-          zeroUncountedCountTagsByWarehouse.h   \
+          zeroUncountedCountTagsByWarehouse.h \
+    printStatementsByCustomerGroup.h
 
 SOURCES = absoluteCalendarItem.cpp              \
           accountNumber.cpp                     \
@@ -1328,6 +1334,7 @@ SOURCES = absoluteCalendarItem.cpp              \
           configurePO.cpp                       \
           configureSearchPath.cpp               \
           configureSO.cpp                       \
+          configureWF.cpp						\
           configureWO.cpp                       \
           confirmAchOK.cpp                      \
           contact.cpp                           \
@@ -1598,6 +1605,7 @@ SOURCES = absoluteCalendarItem.cpp              \
           priceList.cpp                         \
           pricingScheduleAssignment.cpp         \
           pricingScheduleAssignments.cpp        \
+          printApOpenItem.cpp                   \
           printArOpenItem.cpp                   \
           printCheck.cpp                        \
           printChecks.cpp                       \
@@ -1854,6 +1862,7 @@ SOURCES = absoluteCalendarItem.cpp              \
           xwidget.cpp                           \
           yourpayprocessor.cpp                  \
           zeroUncountedCountTagsByWarehouse.cpp \
+    printStatementsByCustomerGroup.cpp
 
 include( displays/displays.pri )
 include( hunspell.pri )

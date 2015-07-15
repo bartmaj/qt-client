@@ -224,7 +224,7 @@ to be bound by its terms.</comment>
         <item row="0" column="0">
          <layout class="QVBoxLayout" name="verticalLayout">
           <item>
-           <layout class="QGridLayout" name="gridLayout">
+           <layout class="QGridLayout" name="gridLayout_1">
             <item row="0" column="0">
              <widget class="QLabel" name="_docTypeLit">
               <property name="text">
@@ -245,26 +245,6 @@ to be bound by its terms.</comment>
                   <height>16777215</height>
                  </size>
                 </property>
-                <item>
-                 <property name="text">
-                  <string>Credit Memo</string>
-                 </property>
-                </item>
-                <item>
-                 <property name="text">
-                  <string>Debit Memo</string>
-                 </property>
-                </item>
-                <item>
-                 <property name="text">
-                  <string>Invoice</string>
-                 </property>
-                </item>
-                <item>
-                 <property name="text">
-                  <string>Customer Deposit</string>
-                 </property>
-                </item>
                </widget>
               </item>
               <item>
@@ -698,6 +678,7 @@ to be bound by its terms.</comment>
    <class>CurrCluster</class>
    <extends>CurrDisplay</extends>
    <header>currcluster.h</header>
+   <container>1</container>
   </customwidget>
   <customwidget>
    <class>CurrDisplay</class>

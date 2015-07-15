@@ -1323,16 +1323,10 @@ bool salesOrder::save(bool partial)
 
 void salesOrder::sPopulateMenu(QMenu *pMenu)
 {
-  if (_mode == cView)
-  {
-    bool  didsomething = false;
-    if (_numSelected == 1)
-    {
-      didsomething = true;
-      if (_lineMode == cClosed)
+  if (_mode == cView &&
+      _numSelected == 1 &&
+      _lineMode == cClosed)
         pMenu->addAction(tr("Open Line..."), this, SLOT(sAction()));
-    }
-  }
   
   if ((_mode == cNew) || (_mode == cEdit))
   {
@@ -3450,6 +3444,25 @@ bool salesOrder::deleteSalesOrder(int pId, QWidget *parent)
     }
   }
 
+  XSqlQuery atshippingq;
+  atshippingq.prepare("SELECT BOOL_OR(qtyAtShipping(coitem_id) > 0) AS atshipping"
+                      "  FROM coitem"
+                      " WHERE (coitem_cohead_id=:coheadid);");
+  atshippingq.bindValue(":coheadid", pId);
+  atshippingq.exec();
+  if (atshippingq.first() && atshippingq.value("atshipping").toBool())
+  {
+    QMessageBox::critical(parent, tr("At Shipping"),
+                          tr("You may not delete this Sales Order as it "
+                             "has one or more unshipped line items with "
+                             "inventory at shipping.")) ;
+    return false;
+  }
+  else if (ErrorReporter::error(QtCriticalMsg, parent,
+                                tr("Getting At Shipping Information"),
+                                atshippingq, __FILE__, __LINE__))
+    return false;
+  
   QString question = tr("<p>Are you sure that you want to completely "
 			 "delete the selected Sales Order?");
   XSqlQuery woq;

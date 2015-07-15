@@ -1093,16 +1093,16 @@ void GUIClient::sSystemMessageAdded()
             ParameterList params;
             params.append("mode", "acknowledge");
 
-            systemMessage newdlg(this, "", true);
-            newdlg.set(params);
+            systemMessage *newdlg = new systemMessage();
+            newdlg->set(params);
 
             do
             {
               ParameterList params;
               params.append("msguser_id", msg.value("msguser_id").toInt());
 
-              newdlg.set(params);
-              newdlg.exec();
+              newdlg->set(params);
+              omfgThis->handleNewWindow(newdlg);
             }
             while (msg.next());
           }
@@ -1774,7 +1774,6 @@ void GUIClient::sCustomCommand()
     QString cmd = GCustomCommand.value("cmd_executable").toString();
     if(cmd.toLower() == "!customuiform")
     {
-      bool haveParams = false;
       ParameterList params;
       bool asDialog = false;
       QString asName;
@@ -1826,7 +1825,6 @@ void GUIClient::sCustomCommand()
             var = XVariant::decode(type, value);
           if(active)
           {
-            haveParams = true;
             params.append(name, var);
           }
 // end copied code from OpenRPT/renderapp

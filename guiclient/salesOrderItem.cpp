@@ -113,6 +113,7 @@ salesOrderItem::salesOrderItem(QWidget *parent, const char *name, Qt::WindowFlag
   _invuomid              = -1;
   _invIsFractional       = false;
   _qtyreserved           = 0.0;
+  _qtyatshipping         = 0.0;
   _priceType             = "N";  // default to nominal
   _priceMode             = "D";  // default to discount
 
@@ -940,6 +941,8 @@ void salesOrderItem::sSave(bool pPartial)
                           tr("<p>You must select a valid Site before saving this Sales Order Item."))
          << GuiErrorCheck(!(_qtyOrdered->toDouble() > 0), _qtyOrdered,
                           tr("<p>You must enter a valid Quantity Ordered before saving this Sales Order Item."))
+         << GuiErrorCheck((_qtyOrdered->toDouble() < _qtyatshipping), _qtyOrdered,
+                          tr("<p>You must enter a Quantity Ordered equal to or greater than the Quantity At Shipping."))
          << GuiErrorCheck((_qtyOrdered->toDouble() != (double)qRound(_qtyOrdered->toDouble()) &&
                            _qtyOrdered->validator()->inherits("QIntValidator")), _qtyOrdered,
                           tr("This UOM for this Item does not allow fractional quantities. Please fix the quantity."))
@@ -1934,18 +1937,23 @@ void salesOrderItem::sPopulateItemInfo(int pItemid)
     disconnect( _itemchar,  SIGNAL(itemChanged(QStandardItem *)), this, SLOT(sRecalcAvailability()));
 
     // Populate customer part number if any
-    salesPopulateItemInfo.prepare( "SELECT itemalias_number "
-              "FROM itemalias"
-              " JOIN item ON (item_id=itemalias_item_id)"
-              " LEFT OUTER JOIN crmacct ON (itemalias_crmacct_id=crmacct_id)"
-              "WHERE (item_id=:item_id)"
-              "  AND (crmacct_cust_id=:cust_id OR itemalias_crmacct_id IS NULL);" );
-    salesPopulateItemInfo.bindValue(":item_id", _item->id());
-    salesPopulateItemInfo.bindValue(":cust_id", _custid);
-    salesPopulateItemInfo.exec();
-    if (salesPopulateItemInfo.first())
+    if (_customerPN->text().trimmed().length() == 0)
     {
-       _customerPN->setText(salesPopulateItemInfo.value("itemalias_number").toString());
+      salesPopulateItemInfo.prepare("SELECT itemalias_number,"
+                                    "       CASE WHEN (itemalias_crmacct_id IS NOT NULL) THEN 0"
+                                    "            ELSE 1 END AS orderby "
+                                    "FROM itemalias"
+                                    " LEFT OUTER JOIN crmacct ON (itemalias_crmacct_id=crmacct_id)"
+                                    "WHERE (itemalias_item_id=:item_id)"
+                                    "  AND (crmacct_cust_id=:cust_id OR itemalias_crmacct_id IS NULL) "
+                                    "ORDER BY orderby, itemalias_number;" );
+      salesPopulateItemInfo.bindValue(":item_id", _item->id());
+      salesPopulateItemInfo.bindValue(":cust_id", _custid);
+      salesPopulateItemInfo.exec();
+      if (salesPopulateItemInfo.first())
+      {
+        _customerPN->setText(salesPopulateItemInfo.value("itemalias_number").toString());
+      }
     }
 
     // Populate Characteristics
@@ -4076,8 +4084,9 @@ void salesOrderItem::populate()
     _warehouse->setId(item.value("warehous_id").toInt());
     _warehouse->setEnabled(false);
 
+    _qtyatshipping = item.value("qtyatshipping").toDouble() + item.value("qtyshipped").toDouble();
     if ( (cView != _mode) && (item.value("coitem_status").toString() == "O") )
-      _cancel->setEnabled((item.value("qtyshipped").toDouble()==0.0) && (item.value("qtyatshipping").toDouble()==0.0));
+      _cancel->setEnabled(_qtyatshipping==0.0);
     else
       _cancel->setEnabled(false);
   }

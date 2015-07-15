@@ -14,6 +14,8 @@
 #include <QSqlError>
 #include <QVariant>
 
+#include "errorReporter.h"
+#include "printApOpenItem.h"
 #include "taxDetail.h"
 
 apOpenItem::apOpenItem(QWidget* parent, const char* name, bool modal, Qt::WindowFlags fl)
@@ -28,10 +30,15 @@ apOpenItem::apOpenItem(QWidget* parent, const char* name, bool modal, Qt::Window
   connect(_vend,           SIGNAL(newId(int)),                     this, SLOT(sPopulateVendInfo(int)));
   connect(_taxLit,         SIGNAL(leftClickedURL(const QString&)), this, SLOT(sTaxDetail()));
   connect(_docNumber,      SIGNAL(textEdited(QString)),       this, SLOT(sReleaseNumber()));
+  connect(_usePrepaid,     SIGNAL(toggled(bool)),             this, SLOT(sToggleAccount()));
 
   _cAmount = 0.0;
   _apopenid = -1;
   _seqiss = 0;
+
+  _docType->append(0, tr("Credit Memo"), "C");
+  _docType->append(1, tr("Debit Memo"),  "D");
+  _docType->append(2, tr("Voucher"),     "V");
 
   _apapply->addColumn( tr("Type"),        _dateColumn, Qt::AlignCenter,true, "doctype");
   _apapply->addColumn( tr("Doc. #"),               -1, Qt::AlignLeft,  true, "docnumber");
@@ -39,13 +46,16 @@ apOpenItem::apOpenItem(QWidget* parent, const char* name, bool modal, Qt::Window
   _apapply->addColumn( tr("Amount"),     _moneyColumn, Qt::AlignRight, true, "apapply_amount");
   _apapply->addColumn( tr("Currency"),_currencyColumn, Qt::AlignLeft,  true, "currabbr");
 
+  _printOnPost->setVisible(false);
+
   if (omfgThis->singleCurrency())
       _apapply->hideColumn("currabbr");
 
   _terms->setType(XComboBox::APTerms);
   _journalNumber->setEnabled(false);
 
-  _altAccntid->setType(GLCluster::cRevenue | GLCluster::cExpense);
+  _accntId->setType(GLCluster::cRevenue | GLCluster::cExpense);
+  sToggleAccount();
 }
 
 apOpenItem::~apOpenItem()
@@ -70,16 +80,16 @@ enum SetResponse apOpenItem::set(const ParameterList &pParams)
     if (param.toString() == "creditMemo")
     {
       setWindowTitle(windowTitle() + tr(" - Enter Misc. Credit Memo"));
-      _docType->setCurrentIndex(0);
+      _docType->setCode("C");
       _status->setEnabled(false);
     }
     else if (param.toString() == "debitMemo")
     {
       setWindowTitle(windowTitle() + tr(" - Enter Misc. Debit Memo"));
-      _docType->setCurrentIndex(1);
+      _docType->setCode("D");
     }
     else if (param.toString() == "voucher")
-      _docType->setCurrentIndex(2);
+      _docType->setCode("V");
     else
       return UndefinedError;
 //  ToDo - better error return types
@@ -104,6 +114,7 @@ enum SetResponse apOpenItem::set(const ParameterList &pParams)
 
       _paid->clear();
       _buttonBox->button(QDialogButtonBox::Save)->setText(tr("Post"));
+      _printOnPost->setVisible(true);
       populateStatus();
     }
     else if (param.toString() == "edit")
@@ -119,8 +130,8 @@ enum SetResponse apOpenItem::set(const ParameterList &pParams)
       _journalNumber->setEnabled(false);
       _terms->setEnabled(false);
       _notes->setReadOnly(false);
-      _useAltPrepaid->setEnabled(false);
-      _altAccntid->setEnabled(false);
+      _usePrepaid->setEnabled(false);
+      _accntId->setEnabled(false);
     }
     else if (param.toString() == "view")
     {
@@ -137,8 +148,8 @@ enum SetResponse apOpenItem::set(const ParameterList &pParams)
       _terms->setEnabled(false);
       _terms->setType(XComboBox::Terms);
       _notes->setReadOnly(true);
-      _useAltPrepaid->setEnabled(false);
-      _altAccntid->setEnabled(false);
+      _usePrepaid->setEnabled(false);
+      _accntId->setEnabled(false);
       _status->setEnabled(false);
       _buttonBox->setStandardButtons(QDialogButtonBox::Close);
     }
@@ -197,10 +208,10 @@ void apOpenItem::sSave()
       return;
     }
 
-    if (_useAltPrepaid->isChecked() && (!_altAccntid->isValid()))
+    if (!_usePrepaid->isChecked() && (!_accntId->isValid()))
     {
       QMessageBox::critical( this, tr("Cannot Save A/P Memo"),
-                            tr("<p>You must choose a valid Alternate Prepaid "
+                            tr("<p>You must choose a valid Distribution "
                                "Account Number for this A/P Memo before you "
                                "may save it.") );
       return;
@@ -209,9 +220,9 @@ void apOpenItem::sSave()
     QString tmpFunctionName;
     QString queryStr;
 
-    if (_docType->currentIndex() == 0)
+    if (_docType->code() == "C")
       tmpFunctionName = "createAPCreditMemo";
-    else if (_docType->currentIndex() == 1)
+    else if (_docType->code() == "D")
       tmpFunctionName = "createAPDebitMemo";
     else
     {
@@ -272,25 +283,12 @@ void apOpenItem::sSave()
   else
 	temp = "H" ;
   saveOpenItem.bindValue(":apopen_status", temp);
-  if(_useAltPrepaid->isChecked())
-    saveOpenItem.bindValue(":apopen_accnt_id", _altAccntid->id());
+  if(!_usePrepaid->isChecked())
+    saveOpenItem.bindValue(":apopen_accnt_id", _accntId->id());
   else
     saveOpenItem.bindValue(":apopen_accnt_id", -1);
 
-  switch (_docType->currentIndex())
-  {
-    case 0:
-      saveOpenItem.bindValue(":apopen_doctype", "C");
-      break;
-
-    case 1:
-      saveOpenItem.bindValue(":apopen_doctype", "D");
-      break;
-
-    case 2:
-      saveOpenItem.bindValue(":apopen_doctype", "V");
-      break;
-  }
+  saveOpenItem.bindValue(":apopen_doctype", _docType->code());
 
   saveOpenItem.exec();
   if (saveOpenItem.first())
@@ -317,9 +315,44 @@ void apOpenItem::sSave()
   }
 
   if (_mode == cEdit)
+  {
+    if(_printOnPost->isChecked())
+      sPrintOnPost(_apopenid);
     done(_apopenid);
+  }
   else
+  {
+    if(_printOnPost->isChecked())
+    {
+      if (_docType->code() == "C")
+//    Credit Memo function returns journal# not apopenid so we have to go find it
+      {
+        XSqlQuery getCMid;
+        getCMid.prepare("SELECT apopen_id AS result FROM apopen "
+                        "WHERE ((apopen_doctype = 'C') "
+                        " AND (apopen_docnumber = :docnumber) "
+                        " AND (apopen_journalnumber = :journal));");
+        getCMid.bindValue(":docnumber", _docNumber->text());
+        getCMid.bindValue(":journal", saveOpenItem.value("result").toInt());
+        getCMid.exec();
+        if (ErrorReporter::error(QtCriticalMsg, this, tr("Returning apopenid"),
+                           getCMid, __FILE__, __LINE__))
+        {
+          return;
+        }
+        if (getCMid.first())
+        {
+          sPrintOnPost(getCMid.value("result").toInt());
+        }
+      }
+      else
+      {
+//      The Debit Memo returns apopenid so is fine
+        sPrintOnPost(saveOpenItem.value("result").toInt());
+      }
+    }
     done(saveOpenItem.value("result").toInt());
+  }
 }
 
 void apOpenItem::sClose()
@@ -347,6 +380,11 @@ void apOpenItem::sReleaseNumber()
     releaseOpenItem.bindValue(":docNumber", _seqiss);
     releaseOpenItem.exec();
   }
+}
+
+void apOpenItem::sToggleAccount()
+{
+  _accntId->setEnabled(!_usePrepaid->isChecked());
 }
 
 void apOpenItem::populate()
@@ -422,17 +460,12 @@ void apOpenItem::populate()
 
     if(!populateOpenItem.value("apopen_accnt_id").isNull() && populateOpenItem.value("apopen_accnt_id").toInt() != -1)
     {
-      _useAltPrepaid->setChecked(true);
-      _altAccntid->setId(populateOpenItem.value("apopen_accnt_id").toInt());
+      _usePrepaid->setChecked(false);
+      _accntId->setId(populateOpenItem.value("apopen_accnt_id").toInt());
     }
 
     QString docType = populateOpenItem.value("apopen_doctype").toString();
-    if (docType == "C")
-      _docType->setCurrentIndex(0);
-    else if (docType == "D")
-      _docType->setCurrentIndex(1);
-    else if (docType == "V")
-      _docType->setCurrentIndex(2);
+    _docType->setCode(docType);
 
     _cAmount = _amount->localValue();
 
@@ -523,6 +556,16 @@ void apOpenItem::sPopulateDueDate()
   }
 }
 
+void apOpenItem::sPrintOnPost(int temp_id)
+{
+  ParameterList params;
+  params.append("apopen_id", temp_id);
+
+  printApOpenItem newdlg(this, "", true);
+  if (newdlg.set(params) == NoError)
+    newdlg.exec();
+}
+
 void apOpenItem::sTaxDetail()
 {
   XSqlQuery ap;
@@ -556,10 +599,7 @@ void apOpenItem::sTaxDetail()
     ap.bindValue(":apopen_id",_apopenid);
     ap.bindValue(":docDate", _docDate->date());
     ap.bindValue(":dueDate", _dueDate->date());
-    if (_docType->currentIndex())
-      ap.bindValue(":docType", "D" );
-    else
-      ap.bindValue(":docType", "C" );
+    ap.bindValue(":docType", _docType->code() );
     ap.bindValue(":docNumber", _docNumber->text());
     ap.bindValue(":currId", _amount->id());
     ap.exec();
@@ -588,7 +628,7 @@ void apOpenItem::sTaxDetail()
   params.append("display_type", "A");
   params.append("subtotal", _amount->localValue());
   params.append("adjustment");
-  if (_docType->currentIndex())
+  if (_docType->code() == "D")
     params.append("sense",-1);
   if (newdlg.set(params) == NoError)  
   {
@@ -601,7 +641,7 @@ void apOpenItem::sTaxDetail()
     taxq.exec();
     if (taxq.first())
     {
-      if (_docType->currentIndex())
+      if (_docType->code() == "D")
         _tax->setLocalValue(taxq.value("tax").toDouble() * -1);
       else
         _tax->setLocalValue(taxq.value("tax").toDouble());
