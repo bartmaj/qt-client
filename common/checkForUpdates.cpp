@@ -287,6 +287,7 @@ void checkForUpdates::downloadFinished()
     reply->deleteLater();
     reply = 0;
 
+    file->remove();
     delete file;
     file = 0;
 
